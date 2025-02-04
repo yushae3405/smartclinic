@@ -19,7 +19,7 @@ export function Blog() {
       try {
         setLoading(true);
         const response = await fetch('/api/posts');
-        const data = await response.json();
+        let data = await response.json();
         setPosts(data);
       } catch (err) {
         setError('Failed to load blog posts');

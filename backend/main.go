@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"smartclinic/handlers"
 
 	"github.com/gorilla/mux"
@@ -20,8 +21,15 @@ func main() {
 		log.Fatal("Failed to connect to database:", err)
 	}
 
-	// Auto migrate the schema
-	db.AutoMigrate(&handlers.Doctor{}, &handlers.Service{}, &handlers.Appointment{}, &handlers.Post{}, &handlers.Comment{}, &handlers.ContactMessage{})
+	// Execute migration SQL
+	migrationSQL, err := os.ReadFile(filepath.Join("supabase", "migrations", "20250204192101_sweet_smoke.sql"))
+	if err != nil {
+		log.Fatal("Failed to read migration file:", err)
+	}
+
+	if err := db.Exec(string(migrationSQL)).Error; err != nil {
+		log.Printf("Migration warning (can be ignored if tables exist): %v", err)
+	}
 
 	// Initialize handler
 	h := &handlers.Handler{DB: db}
@@ -30,7 +38,15 @@ func main() {
 	r := mux.NewRouter()
 	api := r.PathPrefix("/api").Subrouter()
 
-	// Routes
+	// Development routes - put these first to ensure data exists
+	if os.Getenv("ENVIRONMENT") != "production" {
+		// Seed in specific order: doctors first, then services, then posts
+		api.HandleFunc("/seed/doctors", h.SeedDoctors).Methods("POST")
+		api.HandleFunc("/seed/services", h.SeedServices).Methods("POST")
+		api.HandleFunc("/seed/posts", h.SeedPosts).Methods("POST")
+	}
+
+	// Regular routes
 	api.HandleFunc("/doctors", h.GetDoctors).Methods("GET")
 	api.HandleFunc("/services", h.GetServices).Methods("GET")
 	api.HandleFunc("/appointments", h.CreateAppointment).Methods("POST")
@@ -42,13 +58,6 @@ func main() {
 	api.HandleFunc("/posts", h.GetPosts).Methods("GET")
 	api.HandleFunc("/posts/{slug}", h.GetPost).Methods("GET")
 	api.HandleFunc("/posts/{id}/comments", h.CreateComment).Methods("POST")
-
-	// Development routes
-	if os.Getenv("ENVIRONMENT") != "production" {
-		api.HandleFunc("/seed/doctors", h.SeedDoctors).Methods("POST")
-		api.HandleFunc("/seed/services", h.SeedServices).Methods("POST")
-		api.HandleFunc("/seed/posts", h.SeedPosts).Methods("POST")
-	}
 
 	// CORS setup
 	c := cors.New(cors.Options{
