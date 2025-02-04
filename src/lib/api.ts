@@ -66,7 +66,7 @@ export async function seedDoctors(): Promise<Doctor[]> {
     return response.data;
   } catch (error) {
     console.error('Error seeding doctors:', error);
-    return [];
+    throw error;
   }
 }
 
@@ -76,7 +76,7 @@ export async function seedServices(): Promise<Service[]> {
     return response.data;
   } catch (error) {
     console.error('Error seeding services:', error);
-    return [];
+    throw error;
   }
 }
 
@@ -86,6 +86,18 @@ export async function seedPosts(): Promise<Post[]> {
     return response.data;
   } catch (error) {
     console.error('Error seeding posts:', error);
-    return [];
+    throw error;
+  }
+}
+
+export async function seedAll(): Promise<void> {
+  try {
+    // Seed in correct order
+    await seedDoctors();
+    await seedServices();
+    await seedPosts();
+  } catch (error) {
+    console.error('Error seeding data:', error);
+    throw error;
   }
 }

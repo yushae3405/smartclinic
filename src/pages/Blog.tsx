@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { Calendar, User, Tag, Eye } from 'lucide-react';
 import { format, isValid, parseISO } from 'date-fns';
 import { AnimatedSection } from '../components/AnimatedSection';
-import { getPosts, seedPosts } from '../lib/api';
+import { getPosts, seedAll } from '../lib/api';
 import type { Post } from '../types';
 
 export function Blog() {
@@ -21,14 +21,15 @@ export function Blog() {
         setLoading(true);
         let data = await getPosts(selectedCategory !== 'all' ? selectedCategory : undefined);
         
-        // If no posts exist, seed the database
+        // If no posts exist, seed all required data
         if (!data || data.length === 0) {
-          data = await seedPosts();
+          await seedAll();
+          data = await getPosts(selectedCategory !== 'all' ? selectedCategory : undefined);
         }
         
         setPosts(data || []);
       } catch (err) {
-        setError('Failed to load blog posts');
+        setError('Failed to load blog posts. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -52,7 +53,15 @@ export function Blog() {
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-red-600 text-xl">{error}</p>
+        <div className="text-center">
+          <p className="text-red-600 text-xl">{error}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
