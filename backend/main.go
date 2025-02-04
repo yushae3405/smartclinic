@@ -4,7 +4,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-
 	"smartclinic/handlers"
 
 	"github.com/gorilla/mux"
@@ -15,39 +14,47 @@ import (
 
 func main() {
 	// Database connection
-	dsn := os.Getenv("DATABASE_URL")
-	if dsn == "" {
-		dsn = "host=localhost user=postgres password=#Yashar3405#H dbname=smartclinic port=5432 sslmode=disable"
-	}
-
+	dsn := "host=localhost user=postgres password=#Yashar3405#H dbname=smartclinic port=5432 sslmode=disable"
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
 
 	// Auto migrate the schema
-	db.AutoMigrate(&handlers.Doctor{}, &handlers.Service{}, &handlers.Appointment{})
+	db.AutoMigrate(&handlers.Doctor{}, &handlers.Service{}, &handlers.Appointment{}, &handlers.Post{}, &handlers.Comment{}, &handlers.ContactMessage{})
 
-	// Initialize handlers
+	// Initialize handler
 	h := &handlers.Handler{DB: db}
 
 	// Router setup
 	r := mux.NewRouter()
-
-	// API routes
 	api := r.PathPrefix("/api").Subrouter()
+
+	// Routes
 	api.HandleFunc("/doctors", h.GetDoctors).Methods("GET")
 	api.HandleFunc("/services", h.GetServices).Methods("GET")
 	api.HandleFunc("/appointments", h.CreateAppointment).Methods("POST")
 	api.HandleFunc("/appointments", h.GetAppointments).Methods("GET")
 	api.HandleFunc("/appointments/{id}", h.GetAppointment).Methods("GET")
-	api.HandleFunc("/appointments/{id}", h.UpdateAppointmentStatus).Methods("PATCH")
+	api.HandleFunc("/appointments/{id}/status", h.UpdateAppointmentStatus).Methods("PUT")
 
-	// CORS
+	// Blog routes
+	api.HandleFunc("/posts", h.GetPosts).Methods("GET")
+	api.HandleFunc("/posts/{slug}", h.GetPost).Methods("GET")
+	api.HandleFunc("/posts/{id}/comments", h.CreateComment).Methods("POST")
+
+	// Development routes
+	if os.Getenv("ENVIRONMENT") != "production" {
+		api.HandleFunc("/seed/doctors", h.SeedDoctors).Methods("POST")
+		api.HandleFunc("/seed/services", h.SeedServices).Methods("POST")
+		api.HandleFunc("/seed/posts", h.SeedPosts).Methods("POST")
+	}
+
+	// CORS setup
 	c := cors.New(cors.Options{
 		AllowedOrigins: []string{"http://localhost:5173"},
-		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
-		AllowedHeaders: []string{"*"},
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders: []string{"Content-Type", "Authorization"},
 	})
 
 	// Start server
@@ -55,8 +62,6 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
-
-	handler := c.Handler(r)
 	log.Printf("Server starting on port %s", port)
-	log.Fatal(http.ListenAndServe(":"+port, handler))
+	log.Fatal(http.ListenAndServe(":"+port, c.Handler(r)))
 }
