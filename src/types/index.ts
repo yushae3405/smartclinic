@@ -61,3 +61,5 @@ export interface Comment {
   createdAt: string;
   updatedAt: string;
 }
+
+export type CreateCommentData = Pick<Comment, 'name' | 'email' | 'content'>;

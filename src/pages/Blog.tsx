@@ -2,8 +2,9 @@ import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Calendar, User, Tag, Eye } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isValid, parseISO } from 'date-fns';
 import { AnimatedSection } from '../components/AnimatedSection';
+import { getPosts, seedPosts } from '../lib/api';
 import type { Post } from '../types';
 
 export function Blog() {
@@ -18,9 +19,14 @@ export function Blog() {
     const fetchPosts = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/posts');
-        let data = await response.json();
-        setPosts(data);
+        let data = await getPosts(selectedCategory !== 'all' ? selectedCategory : undefined);
+        
+        // If no posts exist, seed the database
+        if (!data || data.length === 0) {
+          data = await seedPosts();
+        }
+        
+        setPosts(data || []);
       } catch (err) {
         setError('Failed to load blog posts');
       } finally {
@@ -29,11 +35,19 @@ export function Blog() {
     };
 
     fetchPosts();
-  }, []);
+  }, [selectedCategory]);
 
-  const filteredPosts = selectedCategory === 'all'
-    ? posts
-    : posts.filter(post => post.category === selectedCategory);
+  const formatDate = (dateString: string) => {
+    try {
+      const date = parseISO(dateString);
+      if (!isValid(date)) {
+        return 'Invalid date';
+      }
+      return format(date, 'MMM d, yyyy');
+    } catch {
+      return 'Invalid date';
+    }
+  };
 
   if (error) {
     return (
@@ -89,7 +103,7 @@ export function Blog() {
         </div>
       ) : (
         <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {filteredPosts.map((post, index) => (
+          {posts.map((post, index) => (
             <AnimatedSection key={post.id} delay={index * 0.1}>
               <Link to={`/blog/${post.slug}`}>
                 <motion.article
@@ -105,7 +119,7 @@ export function Blog() {
                     <div className="flex items-center gap-4 mb-4">
                       <span className="flex items-center text-sm text-gray-500 dark:text-gray-400">
                         <Calendar className="w-4 h-4 mr-1" />
-                        {format(new Date(post.createdAt), 'MMM d, yyyy')}
+                        {formatDate(post.createdAt)}
                       </span>
                       <span className="flex items-center text-sm text-gray-500 dark:text-gray-400">
                         <Eye className="w-4 h-4 mr-1" />

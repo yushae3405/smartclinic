@@ -2,8 +2,9 @@ import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Calendar, User, MessageSquare, Eye } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isValid, parseISO } from 'date-fns';
 import { AnimatedSection } from '../components/AnimatedSection';
+import { getPost, createComment } from '../lib/api';
 import type { Post, Comment } from '../types';
 
 export function BlogPost() {
@@ -17,9 +18,10 @@ export function BlogPost() {
     const fetchPost = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/api/posts/${slug}`);
-        const data = await response.json();
-        setPost(data);
+        if (slug) {
+          const data = await getPost(slug);
+          setPost(data);
+        }
       } catch (err) {
         setError('Failed to load blog post');
       } finally {
@@ -33,19 +35,28 @@ export function BlogPost() {
   const handleCommentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch(`/api/posts/${post?.id}/comments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(comment),
-      });
-      const newComment = await response.json();
-      setPost(prev => prev ? {
-        ...prev,
-        comments: [...(prev.comments || []), newComment],
-      } : null);
-      setComment({ name: '', email: '', content: '' });
+      if (post?.id) {
+        const newComment = await createComment(post.id, comment);
+        setPost(prev => prev ? {
+          ...prev,
+          comments: [...(prev.comments || []), newComment],
+        } : null);
+        setComment({ name: '', email: '', content: '' });
+      }
     } catch (err) {
       console.error('Failed to post comment:', err);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    try {
+      const date = parseISO(dateString);
+      if (!isValid(date)) {
+        return 'Invalid date';
+      }
+      return format(date, 'MMMM d, yyyy');
+    } catch {
+      return 'Invalid date';
     }
   };
 
@@ -83,7 +94,7 @@ export function BlogPost() {
               <div className="flex items-center gap-6 mb-6 text-sm text-gray-500 dark:text-gray-400">
                 <span className="flex items-center">
                   <Calendar className="w-4 h-4 mr-2" />
-                  {format(new Date(post.createdAt), 'MMMM d, yyyy')}
+                  {formatDate(post.createdAt)}
                 </span>
                 <span className="flex items-center">
                   <User className="w-4 h-4 mr-2" />
@@ -205,7 +216,7 @@ export function BlogPost() {
                         {comment.name}
                       </h4>
                       <span className="text-sm text-gray-500 dark:text-gray-400">
-                        {format(new Date(comment.createdAt), 'MMM d, yyyy')}
+                        {formatDate(comment.createdAt)}
                       </span>
                     </div>
                   </div>
@@ -219,3 +230,4 @@ export function BlogPost() {
     </div>
   );
 }
+

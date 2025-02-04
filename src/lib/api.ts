@@ -55,7 +55,7 @@ export async function getPost(slug: string): Promise<Post> {
   return response.data;
 }
 
-export async function createComment(postId: string, data: Omit<Comment, 'id' | 'postId'>): Promise<Comment> {
+export async function createComment(postId: string, data: Pick<Comment, 'name' | 'email' | 'content'>): Promise<Comment> {
   const response = await api.post<Comment>(`/posts/${postId}/comments`, data);
   return response.data;
 }
